@@ -1,0 +1,168 @@
+\documentclass{article}
+
+%% packages
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{bm}
+\usepackage{tikz}
+\usetikzlibrary{patterns,snakes}
+
+
+\theoremstyle{definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{definition}{Definition}
+\newtheorem{example}{Example}
+
+\renewcommand{\phi}{\varphi}
+\renewcommand{\epsilon}{\varepsilon}
+\newcommand{\PR}{\mathbb{P}}
+\newcommand{\EX}{\mathbb{E}}
+
+
+\title{Na\"ive Learning of Preference Orders}
+\author{}
+
+
+\begin{document}
+    \maketitle
+
+    \section{The Model}\label{sec:model}
+    
+    \paragraph{Preferences.} We assume a set \(A = \{a_1,\dots,a_m\}\) of alternatives.
+    A preference order \(\sigma\) over \(A\) is a linear order on \(A\),
+    and we write \(\mathcal{L}_A\) for the set of all linear orders on \(A\).
+    If \(\sigma\) is a preference on \(A\) and \(x\in A\) is an alternative, 
+    we write \(\sigma_{-x}\) for the restriction of \(\sigma\) on \(A\setminus\{x\}\), 
+    i.e., the preference order that is just like \(\sigma\) except that it ignores \(x\).
+    
+    If \(\sigma\) and \(\sigma'\) are preferences on \(A\), the \emph{Kendall tau} distance \(d(\sigma,\sigma')\)
+    counts the number of pairs of alternatives on which \(\sigma\) and \(\sigma'\) differ.
+
+    If \(\sigma^*\) is a reference ranking over \(m\) alternatives
+    and \(k\in\{0,1,\dots,{m\choose 2}\}\), 
+    \(I_m^k\) is the number of rankings at distance \(k\) from \(\sigma^*\).
+
+    \begin{example}\label{ex:basic-notions}
+        For \(A = \{a,b,c\}\) and \(\sigma^* = abc\), we have that 
+        \(I_3^0 = 1\), corresponding to ranking \(abc\),
+        \(I_3^1 = 2\), corresponding to \(bac\) and \(acb\),
+        \(I_3^2 = 2\), corresponding to \(bca\) and \(cab\),
+        and \(I_3 = 3\), corresponding to \(cba\).
+    \end{example}
+
+    \paragraph{Noise models.}
+    The Mallows model assumes a reference order \(\sigma^*\), and assigns a preference order \(\sigma\)
+    the following probability:
+    \[
+      \PR[\sigma] = \frac{1}{Z}\phi^{d(\sigma,\sigma^*)},
+    \]
+    for \(\phi\in(0,1)\) and \(Z_m = (1+\phi)(1+\phi+\phi^2)\dots(1+\phi+\dots+\phi^{m-1})\).
+    Note that:
+    \[
+      Z_m = Z_{m-1}\cdot(1+\phi+\phi^2+\dots+\phi^{m-1})  .
+    \]
+    Importantly, we also have that:
+    \[
+      Z_m = I_m^0\cdot \phi^0 + I_m^1\cdot\phi^1 + \dots + I_m^{m\choose 2}\cdot\phi^{m\choose 2}.
+    \]
+
+    \paragraph{Agents.} 
+    We assume a set \(N = \{1,\dots, n\}\) of agents,
+    each of which is a node in a directed graph \(G = (N,E)\). 
+    The graph \(G\) represents the social network of the agents, with an edge 
+    \((i,j)\in E\) encoding the fact that \(i\) takes \(j\) into account when updating its preference.
+    The neighborhood \(N(i)\) of \(i\in N\) is defined as \(N(i) = \{j\in N\mid (i,j)\in E\}\), 
+    i.e., as the agents in \(N\) that \(i\) pays attention to.
+    Additionally, each edge \((i,j)\in E\) is associated with a weight \(w_{ij}>0\), such that:
+    \[
+      \sum_{j\in N(i)}w_{ij} = 1,
+    \]
+    i.e., the weights of the outgoing edges of \(i\) add up to \(1\).
+    The graph \(G\) is strongly connected if there is a path from \(i\) to \(j\), for every \(i,j\in N\), 
+    and aperiodic if the greatest common divisor of the cycles in \(G\) is \(1\).
+    
+
+
+    \section{Learning}
+    Without loss of generality we assume here that \(\sigma^* = a_1\dots a_m\). 
+
+    We say that a network \(G_n\) is \emph{wise} if, for any alternatives \(x, y\in A\)
+    such that \(r^*(x)<r^*(y)\), we have that:
+    \[
+      \lim_{n\rightarrow \infty}\PR[r^+(x) - r^+(y)\ge \epsilon] = 0,
+    \]
+    for any \(\epsilon>0\).
+    Intuitively, if \(x\) is ranked above \(y\) in the reference order \(\sigma^*\), 
+    this guarantees that society ends up ranking \(x\) above \(y\) in the consensus ranking.
+    More concretely, the expression says that as the number of agents grows, the probability 
+    of a consensus in which \(x\) is ranked higher than \(y\) effectively goes to \(0\).
+    
+    In the following we will focus on the top choice, which we will call \(a\) for ease of exposition,
+    and show that society ends up putting \(a\) on top. Even more particular, we will show that 
+    \(a\) ends up before \(b\), the second-ranked alternative:
+    \[
+      \lim_{n\rightarrow \infty}\PR[r^+(a) - r^+(b)\ge \epsilon] = 0,
+    \]
+    for any \(\epsilon>0\).
+
+    We start by computing \(\EX[r(a)]\), the expected rank of alternative \(a\) in a ranking 
+    \(\sigma\sim\textit{Mallows}(\sigma^*,\phi)\).
+    Note, first, that if \(\sigma\) is a ranking in which \(a\) has rank \(k\), it holds that:
+    \[
+      d(\sigma^*,\sigma) = d(\sigma^*_{-a}, \sigma_{-a}) + (k-1).
+    \]
+    Intuitively, \(d(\sigma^*,\sigma)\) is obtained by computing the distance from the orders
+    obtained by ignoring \(a\), and then adding to this the amount by which \(a\) is shifted in \(\sigma\)
+    with respect to \(\sigma^*\): since \(a\) has rank \(1\) in \(\sigma^*\) and \(k\) in \(\sigma\), 
+    the shift amounts to \(k-1\).
+
+    Thus, the probability that \(a\) has rank \(k\) in such an order \(\sigma\) is:
+    \[
+      \PR[r(x) = k] = \frac{1}{Z_m}\sum_{i=0}^{m-1\choose 2}I_{m-1}^i\cdot\phi^{i+k-1}.
+    \]
+    Intuitively, this probability is obtained by summing up over all rankings where \(a\) 
+    ends up in the \(k^{\text{th}}\) position. 
+    The probability of getting such a ranking, according to the Mallows model, 
+    is \(\frac{1}{Z_m}\phi^{i+k-1}\),
+    \(i\) is the distance between \(\sigma^*_{-a}\) and \(\sigma_{-a}\).
+    Since ignoring \(a\) leaves us with \(m-1\) alternatives, there are \(I_{m-1}^i\) rankings at distance \(i\)
+    from \(\sigma^*_{-a}\), and the maximum distance that can be obtained in this way is \(m-1\choose 2\).
+    The expected rank of \(a\) comes out to:
+
+    \begin{align*}
+        \EX[r_i(a)] & = \frac{1}{Z_m}\left(1\cdot\sum_0^{m-1\choose 2}I_{m-1}^i\cdot\phi^i + 
+        2\cdot\sum_0^{m-1\choose 2}I_{m-1}^i\cdot\phi^{i+1} + 
+        \dots + 
+        m\cdot \sum_0^{m-1\choose 2}I_{m-1}^i\cdot\phi^{i+m-1} \right)\\ 
+        & = \frac{1}{Z_m}\Big(I_{m-1}^0 (1\cdot \phi^0+\dots+m\cdot\phi^{m-1}) + \\
+        & ~~~~~~~~~~~~~~~~~I_{m-1}^1 (1\cdot \phi^1+ \dots + m\cdot\phi^{m}) +\\
+        & ~~~~~~~~~~~~~~~~~\dots +\\
+        & ~~~~~~~~~~~~~~~~~~~~~~I_{m-1}^{m-1\choose 2}(1\cdot \phi^{m-1\choose 2}+\dots+m\cdot\phi^{{m-1\choose 2}+m-1})\Big)\\ 
+        & = \frac{1}{Z_m}\left(I_{m-1}^0\cdot\phi^0+\dots+I_{m-1}^{m-1\choose 2}\cdot\phi^{m-1\choose 2}\right)\left(1\cdot\phi^0+\dots+m\cdot\phi^{m-1}\right)\\ 
+        & = \frac{1}{Z_m}\cdot Z_{m-1}\left(1\cdot\phi^0+\dots+m\cdot\phi^{m-1}\right)\\ 
+        & = \frac{1\cdot\phi^0+2\cdot\phi^1+\dots+m\cdot\phi^{m-1}}{1+\phi+\phi^2+\dots+\phi^{m-1}}.
+    \end{align*}
+
+    As a sanity check, note that \(\lim_{\phi\rightarrow 0}\EX[a] = 1\) and \(\lim_{\phi\rightarrow 1}\EX[a] = \frac{m+1}{2}\), 
+    whhich is consistent with the fact that as \(\phi\) approaches \(0\) the Mallows model assigns all probability to \(\sigma^*\),
+    and hence \(a\) is virtually guaranteed to end up in position \(1\);
+    while for \(\phi\) approaching \(1\) the probabilities approximate the uniform distribution,
+    maaking \(a\) qually likely to end on on either position, and thus ending up in the middle of the ranking on average.
+
+    A similar calculation yields:
+    \[
+      \EX[r(b)] = \frac{1\cdot \phi^1 + 2\cdot\phi^0 + 3\cdot\phi^1+\dots+m\cdot\phi^{m-2}}{1+\phi+\phi^2+\dots+\phi^{m-1}}.
+    \]
+
+    In general, the expected rank of an alternative \(x\) comes out to:
+    \[
+      \EX[r(x)] = \frac{1\cdot \phi^{|1-r^*(x)|} + 2\cdot\phi^{|2-r^*(x)|} +\dots+m\cdot\phi^{|m-r^*(x)|}}{1+\phi+\phi^2+\dots+\phi^{m-1}}
+    \]
+
+
+    \bibliographystyle{plain}
+    \bibliography{bibliography.bib}
+\end{document}
+
